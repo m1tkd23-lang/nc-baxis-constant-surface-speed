@@ -19,6 +19,26 @@ py -3.12 -m venv .venv
 python .\apps\main.py
 
 
+$env:PYTHONPATH = (Resolve-Path .\src).Path
+
+python .\apps\main.py `
+  "D:\Develop\repos\nc-baxis-constant-surface-speed\path\to\RE-0005-00-00-sub028.EIA" `
+  --tool-d 20 `
+  --theta-ref 12 `
+  --s-ref 8000 `
+  --theta-step 1 `
+  --theta-min 1 `
+  --s-min 1000 `
+  --s-max 20000 `
+  --s-round 10 `
+  --deadband 50 `
+  --invert-b
+
+
+
+#実行後すぐやるチェック
+
+type "D:\Develop\repos\nc-baxis-constant-surface-speed\path\to\RE-0005-00-00-sub028-bcss.report.json"
 
 
 ### AI（設計補助・実装支援）への運用ルール 
