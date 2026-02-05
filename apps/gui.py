@@ -39,7 +39,7 @@ class App:
     def __init__(self, root: Tk) -> None:
         self.root = root
         root.title(APP_TITLE)
-        root.geometry("880x560")
+        root.geometry("920x600")
 
         self.settings_path = Path.cwd() / "bcss_settings.json"
         s = _load_settings(self.settings_path)
@@ -48,15 +48,25 @@ class App:
         self.in_path = StringVar(value=s.get("in_path", ""))
         self.out_dir = StringVar(value=s.get("out_dir", ""))
 
+        # Mode
+        # "relative" (Mode A) or "vc_absolute" (Mode B)
+        self.mode = StringVar(value=str(s.get("mode", "relative")))
+
         # Defaults from your CLI example
         self.tool_d = DoubleVar(value=float(s.get("tool_d", 20.0)))
-        # NEW: baseline angle (B-ref). Internally converted if invert-b is ON.
+
+        # Mode A baseline (user inputs B-ref)
         self.theta_ref = DoubleVar(value=float(s.get("theta_ref", 12.0)))
         self.s_ref = IntVar(value=int(s.get("s_ref", 8000)))
 
+        # Mode B absolute (Vc)
+        self.vc = DoubleVar(value=float(s.get("vc_m_per_min", 0.0)))
+
+        # Quantization / safety
         self.theta_step = DoubleVar(value=float(s.get("theta_step", 1.0)))
         self.theta_min = DoubleVar(value=float(s.get("theta_min", 1.0)))
 
+        # Clamp / rounding
         self.s_min = IntVar(value=int(s.get("s_min", 1000)))
         self.s_max = IntVar(value=int(s.get("s_max", 20000)))
         self.s_round = IntVar(value=int(s.get("s_round", 10)))
@@ -69,6 +79,7 @@ class App:
         self._busy = False
 
         self._build_ui()
+        self._apply_mode_ui()  # enable/disable fields based on mode
 
     def _build_ui(self) -> None:
         pad = {"padx": 10, "pady": 6}
@@ -83,14 +94,37 @@ class App:
         row = ttk.Frame(file_box)
         row.pack(fill="x", **pad)
         ttk.Label(row, text="Input EIA").pack(side="left")
-        ttk.Entry(row, textvariable=self.in_path, width=95).pack(side="left", padx=8, fill="x", expand=True)
+        ttk.Entry(row, textvariable=self.in_path, width=98).pack(side="left", padx=8, fill="x", expand=True)
         ttk.Button(row, text="Browse...", command=self._browse_input).pack(side="left")
 
         row2 = ttk.Frame(file_box)
         row2.pack(fill="x", **pad)
         ttk.Label(row2, text="Output dir (optional)").pack(side="left")
-        ttk.Entry(row2, textvariable=self.out_dir, width=95).pack(side="left", padx=8, fill="x", expand=True)
+        ttk.Entry(row2, textvariable=self.out_dir, width=98).pack(side="left", padx=8, fill="x", expand=True)
         ttk.Button(row2, text="Browse...", command=self._browse_outdir).pack(side="left")
+
+        # ---------- Mode selection ----------
+        mode_box = ttk.LabelFrame(frm, text="Mode")
+        mode_box.pack(fill="x", **pad)
+
+        mrow = ttk.Frame(mode_box)
+        mrow.pack(fill="x", **pad)
+
+        ttk.Radiobutton(
+            mrow,
+            text="Mode A: Relative (θ_ref & S_ref)",
+            variable=self.mode,
+            value="relative",
+            command=self._apply_mode_ui,
+        ).pack(side="left", padx=6)
+
+        ttk.Radiobutton(
+            mrow,
+            text="Mode B: Vc absolute (Vc & tool D)",
+            variable=self.mode,
+            value="vc_absolute",
+            command=self._apply_mode_ui,
+        ).pack(side="left", padx=18)
 
         # ---------- Settings ----------
         st_box = ttk.LabelFrame(frm, text="Settings")
@@ -101,29 +135,31 @@ class App:
 
         def add_entry(row_i: int, col_i: int, label: str, var, width: int = 12):
             ttk.Label(grid, text=label).grid(row=row_i, column=col_i, sticky="w", padx=6, pady=4)
-            ttk.Entry(grid, textvariable=var, width=width).grid(row=row_i, column=col_i + 1, sticky="w", padx=6, pady=4)
+            ent = ttk.Entry(grid, textvariable=var, width=width)
+            ent.grid(row=row_i, column=col_i + 1, sticky="w", padx=6, pady=4)
+            return ent
 
-        # Row 0
-        add_entry(0, 0, "Tool diameter D (mm)  ※(currently not used in Mode A)", self.tool_d)
-        add_entry(0, 2, "θ_ref (deg) (B-ref)", self.theta_ref)   # NEW + important
-        add_entry(0, 4, "S_ref (rpm)", self.s_ref)
+        # Row 0: Tool / Baseline / Vc
+        self.ent_tool_d = add_entry(0, 0, "Tool diameter D (mm)", self.tool_d)
+        self.ent_theta_ref = add_entry(0, 2, "θ_ref (deg) (B-ref)", self.theta_ref)
+        self.ent_s_ref = add_entry(0, 4, "S_ref (rpm)", self.s_ref)
+        self.ent_vc = add_entry(0, 6, "Vc (m/min)", self.vc)
 
-        # Row 1
-        add_entry(1, 0, "θ_step (deg) floor", self.theta_step)
-        add_entry(1, 2, "θ_min (deg) safety", self.theta_min)
+        # Row 1: step/min + invert
+        self.ent_theta_step = add_entry(1, 0, "θ_step (deg) floor", self.theta_step)
+        self.ent_theta_min = add_entry(1, 2, "θ_min (deg) safety", self.theta_min)
+
         ttk.Checkbutton(
             grid,
             text="invert-b (θ = 90 - B) [default ON]",
             variable=self.invert_b,
-        ).grid(row=1, column=4, columnspan=2, sticky="w", padx=6, pady=4)
+        ).grid(row=1, column=4, columnspan=3, sticky="w", padx=6, pady=4)
 
-        # Row 2
-        add_entry(2, 0, "S min (rpm)", self.s_min)
-        add_entry(2, 2, "S max (rpm)", self.s_max)
-        add_entry(2, 4, "S round unit (rpm)", self.s_round)
-
-        # Row 3
-        add_entry(3, 0, "Δrpm deadband (rpm)", self.deadband)
+        # Row 2: clamp / round
+        self.ent_s_min = add_entry(2, 0, "S min (rpm)", self.s_min)
+        self.ent_s_max = add_entry(2, 2, "S max (rpm)", self.s_max)
+        self.ent_s_round = add_entry(2, 4, "S round unit (rpm)", self.s_round)
+        self.ent_deadband = add_entry(2, 6, "Δrpm deadband (rpm)", self.deadband)
 
         # ---------- Actions ----------
         act = ttk.Frame(frm)
@@ -143,6 +179,33 @@ class App:
         self.log = Text(log_box, height=14)
         self.log.pack(fill="both", expand=True, padx=10, pady=8)
         self._log("Ready.")
+
+    def _apply_mode_ui(self) -> None:
+        """
+        Enable only relevant fields:
+        - Mode A: enable theta_ref & s_ref; Vc disabled
+        - Mode B: enable Vc & tool_d; theta_ref/s_ref disabled (still stored)
+        """
+        mode = self.mode.get().strip()
+
+        def set_state(widget: ttk.Entry, enabled: bool) -> None:
+            try:
+                widget.configure(state=("normal" if enabled else "disabled"))
+            except Exception:
+                pass
+
+        if mode == "vc_absolute":
+            set_state(self.ent_vc, True)
+            set_state(self.ent_tool_d, True)
+            set_state(self.ent_theta_ref, False)
+            set_state(self.ent_s_ref, False)
+        else:
+            set_state(self.ent_vc, False)
+            set_state(self.ent_tool_d, True)   # harmless to keep enabled
+            set_state(self.ent_theta_ref, True)
+            set_state(self.ent_s_ref, True)
+
+        self.status.set(f"Mode: {mode}")
 
     def _log(self, msg: str) -> None:
         self.log.insert("end", msg + "\n")
@@ -167,9 +230,11 @@ class App:
         data = {
             "in_path": self.in_path.get(),
             "out_dir": self.out_dir.get(),
+            "mode": self.mode.get(),
             "tool_d": float(self.tool_d.get()),
-            "theta_ref": float(self.theta_ref.get()),  # NEW
+            "theta_ref": float(self.theta_ref.get()),
             "s_ref": int(self.s_ref.get()),
+            "vc_m_per_min": float(self.vc.get()),
             "theta_step": float(self.theta_step.get()),
             "theta_min": float(self.theta_min.get()),
             "s_min": int(self.s_min.get()),
@@ -202,11 +267,21 @@ class App:
         out_dir_text = self.out_dir.get().strip()
         out_dir = Path(out_dir_text) if out_dir_text else inp.parent
 
-        # Build config (Mode A)
+        mode = self.mode.get().strip()
+        if mode not in ("relative", "vc_absolute"):
+            messagebox.showerror("Invalid mode", f"Unknown mode: {mode}")
+            return
+
+        # Mode B requires Vc > 0
+        if mode == "vc_absolute" and float(self.vc.get()) <= 0.0:
+            messagebox.showwarning("Missing Vc", "Mode B requires Vc (m/min) > 0.")
+            return
+
         cfg = BcssConfig(
             tool_d_mm=float(self.tool_d.get()),
-            theta_ref_deg=float(self.theta_ref.get()),  # NEW: user controls baseline angle
+            theta_ref_deg=float(self.theta_ref.get()),
             s_ref_rpm=int(self.s_ref.get()),
+            vc_m_per_min=float(self.vc.get()),
             theta_step_deg=float(self.theta_step.get()),
             theta_min_deg=float(self.theta_min.get()),
             s_min_rpm=int(self.s_min.get()),
@@ -214,6 +289,7 @@ class App:
             s_round_unit_rpm=int(self.s_round.get()),
             deadband_rpm=int(self.deadband.get()),
             invert_b_to_theta=bool(self.invert_b.get()),
+            mode=mode,  # IMPORTANT
         )
 
         # Run in background to keep UI responsive
