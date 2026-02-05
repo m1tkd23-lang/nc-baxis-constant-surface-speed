@@ -1,0 +1,14 @@
+{
+  "in_path": "D:/Develop/repos/nc-baxis-constant-surface-speed/path/to/RE-0005-00-00-sub028.EIA",
+  "out_dir": "D:\\Develop\\repos\\nc-baxis-constant-surface-speed\\path\\to",
+  "tool_d": 20.0,
+  "theta_ref": 12.0,
+  "s_ref": 8000,
+  "theta_step": 1.0,
+  "theta_min": 1.0,
+  "s_min": 1000,
+  "s_max": 20000,
+  "s_round": 10,
+  "deadband": 50,
+  "invert_b": true
+}

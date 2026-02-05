@@ -1,0 +1,35 @@
+{
+  "input_file": "D:\\Develop\\repos\\nc-baxis-constant-surface-speed\\path\\to\\RE-0005-00-00-sub028.EIA",
+  "output_file": "D:\\Develop\\repos\\nc-baxis-constant-surface-speed\\path\\to\\RE-0005-00-00-sub028-bcss.EIA",
+  "report_file": "D:\\Develop\\repos\\nc-baxis-constant-surface-speed\\path\\to\\RE-0005-00-00-sub028-bcss.report.json",
+  "processed_at": "2026-02-05T08:56:12+09:00",
+  "config": {
+    "tool_d_mm": 20.0,
+    "theta_ref_deg": 12.0,
+    "s_ref_rpm": 9730,
+    "theta_step_deg": 1.0,
+    "theta_min_deg": 1.0,
+    "s_min_rpm": 1000,
+    "s_max_rpm": 20000,
+    "s_round_unit_rpm": 10,
+    "deadband_rpm": 10,
+    "invert_b_to_theta": true
+  },
+  "detect": {
+    "total_lines": 418967,
+    "b_lines": 169523,
+    "spindle_on_lines": 418941
+  },
+  "changes": {
+    "inserted_s_lines": 10484,
+    "skipped_nextline_has_s": 0,
+    "skipped_deadband": 0,
+    "clamped_count": 0,
+    "theta_min_applied_count": 0,
+    "pending_at_eof": 0
+  },
+  "s_range": {
+    "s_min": 7958,
+    "s_max": 12080
+  }
+}

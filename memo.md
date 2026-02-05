@@ -41,6 +41,14 @@ python .\apps\main.py `
 type "D:\Develop\repos\nc-baxis-constant-surface-speed\path\to\RE-0005-00-00-sub028-bcss.report.json"
 
 
+#起動方法
+
+$env:PYTHONPATH = (Resolve-Path .\src).Path
+python .\apps\gui.py
+
+
+
+
 ### AI（設計補助・実装支援）への運用ルール 
 #### 受け取りタイミングの意味 
 - **作業開始時に本.mdを受け取った場合** 
